@@ -7,20 +7,20 @@ const https = require('https');
 const { WebSocketServer } = require('ws');
 const http = require('http');
 
-// Настройка глобального агента HTTPS с дополнительными корневыми сертификатами
+// Настройка глобального агента HTTPS
 https.globalAgent.options.ca = require('ssl-root-cas').create();
 
 const app = express();
 const port = process.env.PORT || 10000;
 
-// Создаем HTTP-сервер для Express
+// Создаем HTTP-сервер
 const server = http.createServer(app);
 
-// Настройка WebSocket-сервера на том же HTTP-сервере
+// Настройка WebSocket-сервера
 const wss = new WebSocketServer({ server });
 
 app.use(cors({
-  origin: '*', // Разрешаем все источники для продакшена
+  origin: '*',
   methods: ['GET', 'POST'],
 }));
 app.use(express.json());
@@ -29,7 +29,7 @@ app.use(express.json());
 const keywordsPath = path.join(__dirname, 'data', 'keywords.json');
 let keywordsData = {};
 
-// Загрузка данных ключевых слов
+// Загрузка ключевых слов
 async function loadKeywords() {
   try {
     const data = await fs.readFile(keywordsPath, 'utf8');
@@ -42,7 +42,7 @@ async function loadKeywords() {
 
 loadKeywords();
 
-// Хранилище для отслеживания активных загрузок
+// Хранилище для прогресса загрузок
 const downloadProgress = new Map();
 
 // WebSocket: обработка подключений
@@ -62,7 +62,7 @@ wss.on('connection', (ws, req) => {
         ws.downloadId = downloadId;
         console.log(`WebSocket: Получен downloadId=${downloadId}`);
       } else {
-        console.warn('WebSocket: downloadId не указан в сообщении');
+        console.warn('WebSocket: downloadId не указан');
       }
     } catch (error) {
       console.error('WebSocket: Ошибка обработки сообщения:', error.message);
@@ -81,7 +81,7 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-// Периодическая проверка активных WebSocket-соединений
+// Проверка активности WebSocket
 setInterval(() => {
   wss.clients.forEach((ws) => {
     if (!ws.isAlive) {
@@ -93,7 +93,7 @@ setInterval(() => {
   });
 }, 30000);
 
-// API для получения URL по ключевому слову
+// API для URL по ключевому слову
 app.get('/api/urls/:keyword', async (req, res) => {
   try {
     const { keyword } = req.params;
@@ -163,7 +163,7 @@ app.get('/api/content', async (req, res) => {
     });
     let userMessage = 'Ошибка загрузки контента';
     if (error.message.includes('unable to verify the first certificate')) {
-      userMessage = 'Не удалось проверить сертификат сайта. Попробуйте другой URL.';
+      userMessage = 'Не удалось проверить сертификат сайта.';
     } else if (error.response) {
       userMessage = `Ошибка HTTP: ${error.response.status}`;
     }
@@ -171,7 +171,7 @@ app.get('/api/content', async (req, res) => {
   }
 });
 
-// Проверка WebSocket через HTTP
+// Проверка WebSocket
 app.get('/ws-test', (req, res) => {
   console.log('Получен запрос на /ws-test');
   res.json({
@@ -180,7 +180,7 @@ app.get('/ws-test', (req, res) => {
   });
 });
 
-// Запускаем сервер
+// Запуск сервера
 server.listen(port, () => {
   const wsProtocol = process.env.NODE_ENV === 'production' ? 'wss' : 'ws';
   const wsHost = process.env.NODE_ENV === 'production' ? 'http-client-server-backend.onrender.com' : 'localhost';
