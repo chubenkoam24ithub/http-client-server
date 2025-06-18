@@ -20,41 +20,42 @@ function App() {
     return Math.random().toString(36).substring(2, 15);
   };
 
-  useEffect(() => {
-    const wsUrl = 'ws://localhost:3002';
+const serverUrl = process.env.REACT_APP_SERVER_URL || 'http://localhost:3001';
+const wsUrl = process.env.REACT_APP_WS_URL || (process.env.REACT_APP_SERVER_URL ? process.env.REACT_APP_SERVER_URL.replace('https://', 'wss://').replace('http://', 'ws://') : 'ws://localhost:3001');
+
+useEffect(() => {
+  console.log('Попытка подключения WebSocket к:', wsUrl);
+  const ws = new WebSocket(wsUrl);
+  
+  ws.onopen = () => {
+    console.log('WebSocket успешно подключен к:', wsUrl);
+    ws.send(JSON.stringify({ downloadId }));
+  };
+  
+  ws.onmessage = (event) => {
+    console.log('Получено WebSocket сообщение:', event.data);
     try {
-      const websocket = new WebSocket(wsUrl);
-      setWs(websocket);
-
-      websocket.onopen = () => {
-        console.log('WebSocket подключен');
-      };
-
-      websocket.onmessage = (event) => {
-        console.log('WebSocket сообщение:', event.data);
-        const { percent, total } = JSON.parse(event.data);
-        setProgress(percent);
-        setTotalSize(total);
-      };
-
-      websocket.onerror = () => {
-        console.error('Ошибка WebSocket');
-        setError('Ошибка соединения с WebSocket. Прогресс не будет отображаться.');
-      };
-
-      websocket.onclose = () => {
-        console.log('WebSocket закрыт');
-        setWs(null);
-      };
-
-      return () => {
-        websocket.close();
-      };
-    } catch (err) {
-      console.error('Ошибка инициализации WebSocket:', err);
-      setError('Не удалось подключиться к WebSocket');
+      const data = JSON.parse(event.data);
+      setProgress(data.percent);
+      setTotal(data.total);
+    } catch (error) {
+      console.error('Ошибка парсинга WebSocket сообщения:', error);
     }
-  }, []);
+  };
+  
+  ws.onclose = (event) => {
+    console.log('WebSocket закрыт:', event.code, event.reason);
+  };
+  
+  ws.onerror = (error) => {
+    console.error('Ошибка WebSocket:', error);
+  };
+
+  return () => {
+    console.log('Отключение WebSocket');
+    ws.close();
+  };
+}, [downloadId]);
 
 
   useEffect(() => {
