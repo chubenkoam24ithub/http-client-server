@@ -17,15 +17,14 @@ function App() {
   const [ws, setWs] = useState(null);
   const [downloadId, setDownloadId] = useState(null);
 
-  // Настройка URL сервера и WebSocket через переменные окружения
-  const serverUrl = process.env.REACT_APP_SERVER_URL || 'http://localhost:3001';
-  const wsUrl = process.env.REACT_APP_WS_URL || (process.env.REACT_APP_SERVER_URL ? process.env.REACT_APP_SERVER_URL.replace('https://', 'wss://').replace('http://', 'ws://') : 'ws://localhost:3001');
+  // Базовый URL без завершающего слеша
+  const serverUrl = (process.env.REACT_APP_SERVER_URL || 'https://http-client-server-jjev.onrender.com').replace(/\/+$/, '');
+  const wsUrl = process.env.REACT_APP_WS_URL || 'wss://http-client-server-jjev.onrender.com';
 
   const generateDownloadId = () => {
     return `download-${Math.random().toString(36).substring(2, 15)}`;
   };
 
-  // Настройка WebSocket
   useEffect(() => {
     console.log('Попытка подключения WebSocket к:', wsUrl);
     try {
@@ -33,30 +32,31 @@ function App() {
       setWs(websocket);
 
       websocket.onopen = () => {
-        console.log('WebSocket успешно подключен к:', wsUrl);
-        // Отправка downloadId будет выполнена в fetchContent
+        console.log('WebSocket подключен к:', wsUrl);
       };
 
       websocket.onmessage = (event) => {
-        console.log('Получено WebSocket сообщение:', event.data);
+        console.log('WebSocket сообщение:', event.data);
         try {
           const { percent, total } = JSON.parse(event.data);
           setProgress(percent || 0);
           setTotalSize(total || 0);
         } catch (err) {
-          console.error('Ошибка парсинга WebSocket сообщения:', err.message);
-          setError('Ошибка обработки прогресса загрузки');
+          console.error('Ошибка парсинга WebSocket:', err.message);
+          setError('Ошибка обработки прогресса');
         }
       };
 
       websocket.onerror = (error) => {
         console.error('Ошибка WebSocket:', error);
-        setError('Ошибка соединения с WebSocket. Прогресс не будет отображаться.');
+        setError('Ошибка WebSocket. Прогресс не отображается.');
       };
 
       websocket.onclose = (event) => {
-        console.log('WebSocket закрыт:', event.code, event.reason);
-        setWs(null);
+        console.log(`WebSocket закрыт: код=${event.code}, причина=${event.reason || 'Без причины'}`);
+        if (event.code === 1006) {
+          setError('WebSocket прерван (код 1006). Проверьте сервер.');
+        }
       };
 
       return () => {
@@ -69,7 +69,6 @@ function App() {
     }
   }, [wsUrl]);
 
-  // Загрузка сохраненного контента из localStorage
   useEffect(() => {
     const saved = localStorage.getItem('savedContent');
     if (saved) {
@@ -83,7 +82,6 @@ function App() {
     }
   }, []);
 
-  // Получение URL по ключевому слову
   const fetchUrls = async () => {
     setError('');
     setUrls([]);
@@ -96,8 +94,9 @@ function App() {
       return;
     }
     try {
-      console.log(`Запрос URL: ${serverUrl}/api/urls/${keyword}`);
-      const response = await fetch(`${serverUrl}/api/urls/${keyword}`, {
+      const apiUrl = `${serverUrl}/api/urls/${encodeURIComponent(keyword)}`;
+      console.log(`Запрос URL: ${apiUrl}`);
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +119,6 @@ function App() {
     }
   };
 
-  // Загрузка контента по URL
   const fetchContent = async (url) => {
     setError('');
     setProgress(0);
@@ -133,14 +131,16 @@ function App() {
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ downloadId: newDownloadId }));
+      console.log(`Отправлено WebSocket: { downloadId: ${newDownloadId} }`);
     } else {
-      console.warn('WebSocket не подключен, прогресс не будет отображаться');
-      setError('WebSocket не активен, прогресс не отображается');
+      console.warn('WebSocket не подключен');
+      setError('WebSocket не активен');
     }
 
     try {
-      console.log(`Запрос контента: ${serverUrl}/api/content?url=${encodeURIComponent(url)}&downloadId=${newDownloadId}`);
-      const response = await fetch(`${serverUrl}/api/content?url=${encodeURIComponent(url)}&downloadId=${newDownloadId}`, {
+      const contentUrl = `${serverUrl}/api/content?url=${encodeURIComponent(url)}&downloadId=${newDownloadId}`;
+      console.log(`Запрос контента: ${contentUrl}`);
+      const response = await fetch(contentUrl, {
         headers: {
           Accept: 'text/plain',
         },
@@ -178,9 +178,9 @@ function App() {
 
       const decoder = new TextDecoder('utf-8');
       const text = decoder.decode(combined);
-      console.log('Загруженный контент:', text.substring(0, 100));
+      console.log('Контент:', text.substring(0, 100));
       if (!text || text.trim().length === 0) {
-        setError('Контент пустой или содержит только пробелы');
+        setError('Контент пустой');
         return;
       }
       setContent(text);
@@ -190,15 +190,12 @@ function App() {
       try {
         localStorage.setItem('savedContent', JSON.stringify(newSavedContent));
       } catch (err) {
-        if (err.name === 'QuotaExceededError' || err.message.includes('exceeded the quota')) {
-          setError('Невозможно сохранить контент: превышен лимит хранилища. Удалите старые записи.');
-        } else {
-          setError(`Ошибка сохранения контента: ${err.message}`);
-        }
+        console.error('Ошибка сохранения:', err.message);
+        setError('Ошибка сохранения контента');
       }
     } catch (err) {
       console.error('Ошибка fetchContent:', err.message);
-      setError(`Ошибка загрузки контента: ${err.message}`);
+      setError(`Ошибка загрузки: ${err.message}`);
     }
   };
 
