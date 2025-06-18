@@ -7,29 +7,20 @@ const https = require('https');
 const { WebSocketServer } = require('ws');
 const http = require('http');
 
-// Настройка глобального агента HTTPS
 https.globalAgent.options.ca = require('ssl-root-cas').create();
 
 const app = express();
 const port = process.env.PORT || 10000;
 
-// Создаем HTTP-сервер
 const server = http.createServer(app);
-
-// Настройка WebSocket-сервера
 const wss = new WebSocketServer({ server });
 
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST'],
-}));
+app.use(cors({ origin: '*', methods: ['GET', 'POST'] }));
 app.use(express.json());
 
-// Путь к файлу с ключевыми словами
 const keywordsPath = path.join(__dirname, 'data', 'keywords.json');
 let keywordsData = {};
 
-// Загрузка ключевых слов
 async function loadKeywords() {
   try {
     const data = await fs.readFile(keywordsPath, 'utf8');
@@ -42,10 +33,8 @@ async function loadKeywords() {
 
 loadKeywords();
 
-// Хранилище для прогресса загрузок
 const downloadProgress = new Map();
 
-// WebSocket: обработка подключений
 wss.on('connection', (ws, req) => {
   console.log(`WebSocket: Новое подключение с IP ${req.socket.remoteAddress}, URL: ${req.url}`);
   ws.isAlive = true;
@@ -81,7 +70,6 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-// Проверка активности WebSocket
 setInterval(() => {
   wss.clients.forEach((ws) => {
     if (!ws.isAlive) {
@@ -93,7 +81,6 @@ setInterval(() => {
   });
 }, 30000);
 
-// API для URL по ключевому слову
 app.get('/api/urls/:keyword', async (req, res) => {
   try {
     const { keyword } = req.params;
@@ -108,7 +95,6 @@ app.get('/api/urls/:keyword', async (req, res) => {
   }
 });
 
-// API для загрузки контента
 app.get('/api/content', async (req, res) => {
   const { url, downloadId } = req.query;
   if (!url) {
@@ -171,7 +157,6 @@ app.get('/api/content', async (req, res) => {
   }
 });
 
-// Проверка WebSocket
 app.get('/ws-test', (req, res) => {
   console.log('Получен запрос на /ws-test');
   res.json({
@@ -180,7 +165,6 @@ app.get('/ws-test', (req, res) => {
   });
 });
 
-// Запуск сервера
 server.listen(port, () => {
   const wsProtocol = process.env.NODE_ENV === 'production' ? 'wss' : 'ws';
   const wsHost = process.env.NODE_ENV === 'production' ? 'http-client-server-backend.onrender.com' : 'localhost';
