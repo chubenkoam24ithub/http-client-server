@@ -17,7 +17,6 @@ function App() {
   const [ws, setWs] = useState(null);
   const [downloadId, setDownloadId] = useState(null);
 
-  // Базовый URL без завершающего слеша
   const serverUrl = (process.env.REACT_APP_SERVER_URL || 'https://http-client-server-jjev.onrender.com').replace(/\/+$/, '');
   const wsUrl = process.env.REACT_APP_WS_URL || 'wss://http-client-server-jjev.onrender.com';
 
