@@ -4,21 +4,23 @@ const fs = require('fs').promises;
 const axios = require('axios');
 const path = require('path');
 const https = require('https');
-const WebSocket = require('ws');
+const { WebSocketServer } = require('ws');
+const http = require('http');
 
 https.globalAgent.options.ca = require('ssl-root-cas').create();
 
 const app = express();
 const port = process.env.PORT || 3001;
 
-const wss = new WebSocket.Server({ port: process.env.WS_PORT || 3002 });
+const server = http.createServer(app);
+
+const wss = new WebSocketServer({ server });
 
 app.use(cors());
 app.use(express.json());
 
 const keywordsPath = path.join(__dirname, 'data', 'keywords.json');
 let keywordsData = {};
-
 
 async function loadKeywords() {
   try {
@@ -34,26 +36,32 @@ loadKeywords();
 const downloadProgress = new Map();
 
 wss.on('connection', (ws) => {
+  console.log('WebSocket: Новое подключение');
   ws.on('message', (message) => {
-    const { downloadId } = JSON.parse(message.toString());
-    ws.downloadId = downloadId;
-    console.log(`WebSocket: Получен downloadId=${downloadId}`);
+    try {
+      const { downloadId } = JSON.parse(message.toString());
+      ws.downloadId = downloadId;
+      console.log(`WebSocket: Получен downloadId=${downloadId}`);
+    } catch (error) {
+      console.error('WebSocket: Ошибка обработки сообщения:', error);
+    }
   });
 
   ws.on('close', () => {
     if (ws.downloadId) {
       downloadProgress.delete(ws.downloadId);
+      console.log(`WebSocket: Подключение с downloadId=${ws.downloadId} закрыто`);
     }
   });
 });
 
-
+// API для получения URL по ключевому слову
 app.get('/api/urls/:keyword', async (req, res) => {
   try {
     const { keyword } = req.params;
     const urls = keywordsData[keyword.toLowerCase()] || [];
     if (urls.length === 0) {
-      return res.status(404).json({ error: 'Ключевое слово не найдено. Доступные слова: магия, средневековье, дракон' });
+      return res.status(404).json({ error: 'Ключевое слово не найдено' });
     }
     res.json({ urls });
   } catch (error) {
@@ -61,7 +69,6 @@ app.get('/api/urls/:keyword', async (req, res) => {
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
-
 
 app.get('/api/content', async (req, res) => {
   const { url, downloadId } = req.query;
@@ -125,7 +132,7 @@ app.get('/api/content', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Сервер запущен на порту ${port}`);
-  console.log(`WebSocket сервер запущен на порту ${process.env.WS_PORT || 3002}`);
+  console.log(`WebSocket сервер доступен на ws${port === 443 ? 's' : ''}://localhost:${port}`);
 });
