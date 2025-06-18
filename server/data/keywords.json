@@ -1,0 +1,14 @@
+{
+  "магия": [
+    "https://www.ithubdev.ru/data/magic1.txt",
+	"https://www.ithubdev.ru/data/magic2.txt"
+  ],
+  "средневековье": [
+    "https://www.ithubdev.ru/data/medieval1.txt",
+    "https://www.ithubdev.ru/data/medieval2.txt"
+  ],
+  "дракон": [
+    "https://www.ithubdev.ru/data/dragon1.txt",
+    "https://www.ithubdev.ru/data/dragon2.txt"
+  ]
+}
